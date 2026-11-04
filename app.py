@@ -9,16 +9,63 @@ st.set_page_config(
 )
 
 st.title("Calculadora de Tabla de la Verdad")
-st.markdown("Escribe tu expresión lógica abajo. El resultado se muestra en 0 y 1.")
+st.markdown("Construye tu expresión haciendo clic. El resultado se muestra en 0 y 1.")
 
-# Función para normalizar operadores
+# Inicializar estado para la expresión
+if 'expr' not in st.session_state:
+    st.session_state.expr = ""
+
+st.subheader("🛠️ Constructor de Expresión")
+
+# Variables disponibles
+st.markdown("**Variables:**")
+cols_vars = st.columns(6)
+variables_disponibles = ['p', 'q', 'r', 's', 't', 'u']
+for i, var in enumerate(variables_disponibles):
+    with cols_vars[i]:
+        if st.button(var, use_container_width=True):
+            st.session_state.expr += var
+
+# Operadores lógicos disponibles
+st.markdown("**Operadores:**")
+cols_ops = st.columns(6)
+operadores = [
+    ("∧ (AND)", "∧"),
+    ("∨ (OR)", "∨"),
+    ("→ (IMPLICA)", "→"),
+    ("↔ (EQUIV)", "↔"),
+    ("¬ (NOT)", "¬"),
+    ("( )", "()")
+]
+
+for i, (label, symbol) in enumerate(operadores):
+    with cols_ops[i]:
+        if st.button(label, use_container_width=True):
+            if symbol == "()":
+                st.session_state.expr += "()"
+            else:
+                st.session_state.expr += f" {symbol} "
+
+# Botones de control de edición
+col_c1, col_c2 = st.columns(2)
+with col_c1:
+    if st.button("🗑️ Limpiar Todo", type="secondary", use_container_width=True):
+        st.session_state.expr = ""
+with col_c2:
+    if st.button("⬅️ Borrar Último", use_container_width=True):
+        st.session_state.expr = st.session_state.expr.strip()[:-1]
+
+# Mostrar expresión actual
+st.markdown("**Expresión actual:**")
+st.code(st.session_state.expr if st.session_state.expr else "Vacío", language="text")
+
+# Funciones de lógica para la tabla de verdad
 def normalizar_expresion(expr):
     expr = expr.replace('→', '>>').replace('↔', '==').replace('∧', '&').replace('∨', '|').replace('¬', '~')
     return expr
 
 def extraer_variables(expr):
-    vars_encontradas = sorted(list(set(re.findall(r'\b[a-z]\b', expr))))
-    return vars_encontradas
+    return sorted(list(set(re.findall(r'\b[a-z]\b', expr))))
 
 def generar_tabla(expr_norm, variables):
     tabla = []
@@ -35,17 +82,15 @@ def generar_tabla(expr_norm, variables):
     df = pd.DataFrame(tabla, columns=columnas)
     return columnas, df
 
-# Cuadro de texto limpio y directo
-expresion_usuario = st.text_input("Expresión lógica:", value="p and q")
-
-if not expresion_usuario.strip():
-    st.info("Ingresa una expresión para comenzar.")
+# Procesamiento y generación de la tabla
+if not st.session_state.expr.strip():
+    st.info("Ingresa o construye una expresión para comenzar.")
 else:
-    expr_norm = normalizar_expresion(expresion_usuario)
+    expr_norm = normalizar_expresion(st.session_state.expr)
     variables = extraer_variables(expr_norm)
     
     if not variables:
-        st.warning("Expresión inválida o sin variables detectadas (usa letras minúsculas como p, q, r).")
+        st.warning("Expresión incompleta o sin variables detectadas.")
     else:
         cols, df = generar_tabla(expr_norm, variables)
         if df is not None:
@@ -61,4 +106,4 @@ else:
                 mime="text/csv",
             )
         else:
-            st.error("Error al evaluar la expresión. Revisa los operadores (puedes usar and, or, not, o símbolos como &, |, ~).")
+            st.error("Error al evaluar la expresión. Revisa que los operadores y paréntesis estén balanceados.")
