@@ -62,39 +62,44 @@ with cols_extras[3]:
 st.markdown("**Expresión actual:**")
 st.code(st.session_state.expr if st.session_state.expr else "Vacío", language="text")
 
-# Función robusta para traducir operadores lógicos a sintaxis booleana de Python
-def traducir_a_python(expr):
-    # Reemplazos básicos de símbolos
-    expr = expr.replace('∧', ' and ').replace('∨', ' or ').replace('¬', ' not ')
-    expr = expr.replace('↔', ' == ').replace('⊕', ' != ')
+# Función robusta de evaluación lógica basada en la ley de la implicación material
+def evaluar_expresion_logica(expr, contexto):
+    # Reemplazamos símbolos visuales por operadores booleanos exactos de Python
+    expr_eval = expr.replace('∧', ' and ').replace('∨', ' or ').replace('¬', ' not ')
+    expr_eval = expr_eval.replace('↔', ' == ').replace('⊕', ' != ')
     
-    # Manejo recursivo o iterativo seguro de la implicación (p → q equivale a (not p or q))
-    while '→' in expr:
-        partes = expr.split('→', 1)
+    # Manejo correcto de la implicación (A → B equivale a not A or B)
+    while '→' in expr_eval:
+        partes = expr_eval.split('→', 1)
         izq = partes[0].strip()
         der = partes[1].strip()
-        # Buscamos equilibrar paréntesis si es necesario
-        expr = f"(not ({izq}) or ({der}))"
-    return expr
+        expr_eval = f"(not ({izq}) or ({der}))" + (partes[1][len(der):] if len(partes) > 1 else "")
+        break
+        
+    try:
+        if '→' in expr_eval:
+            p_parts = expr_eval.split('→')
+            expr_eval = f"(not ({p_parts[0].strip()}) or ({p_parts[1].strip()}))"
+            
+        return bool(eval(expr_eval, {"__builtins__": None}, contexto))
+    except Exception:
+        return None
 
 def extraer_variables(expr):
-    palabras_reservadas = {'and', 'or', 'not'}
     tokens = re.findall(r'\b[a-z]\b', expr)
+    palabras_reservadas = {'and', 'or', 'not'}
     return sorted(list(set([t for t in tokens if t not in palabras_reservadas])))
 
 def generar_tabla(expr_original, variables):
     tabla = []
-    expr_py = traducir_a_python(expr_original)
-    
     for valores in product([False, True], repeat=len(variables)):
         contexto = {v: val for v, val in zip(variables, valores)}
-        try:
-            # Evaluar la expresión convertida a Python de forma segura
-            resultado = int(eval(expr_py, {"__builtins__": None}, contexto))
-            fila = [int(v) for v in valores] + [resultado]
-            tabla.append(fila)
-        except Exception:
+        resultado_bool = evaluar_expresion_logica(expr_original, contexto)
+        if resultado_bool is None:
             return None, None
+        
+        fila = [int(v) for v in valores] + [int(resultado_bool)]
+        tabla.append(fila)
     
     columnas = variables + ["Resultado"]
     df = pd.DataFrame(tabla, columns=columnas)
