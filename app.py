@@ -26,15 +26,15 @@ for i, var in enumerate(variables_disponibles):
         if st.button(var, use_container_width=True):
             st.session_state.expr += var
 
-# Operadores lógicos disponibles
+# Operadores lógicos en español
 st.markdown("**Operadores:**")
 cols_ops = st.columns(6)
 operadores = [
-    ("∧ (AND)", "∧"),
-    ("∨ (OR)", "∨"),
+    ("∧ (Y)", "∧"),
+    ("∨ (O)", "∨"),
     ("→ (IMPLICA)", "→"),
-    ("↔ (EQUIV)", "↔"),
-    ("¬ (NOT)", "¬"),
+    ("↔ (EQUIV.)", "↔"),
+    ("¬ (NO)", "¬"),
     ("( )", "()")
 ]
 
