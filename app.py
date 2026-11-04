@@ -26,32 +26,35 @@ for i, var in enumerate(variables_disponibles):
         if st.button(var, use_container_width=True):
             st.session_state.expr += var
 
-# Operadores lógicos en español
+# Operadores lógicos separados y completos (incluyendo paréntesis individuales y XOR)
 st.markdown("**Operadores:**")
 cols_ops = st.columns(6)
 operadores = [
     ("∧ (Y)", "∧"),
     ("∨ (O)", "∨"),
-    ("→ (IMPLICA)", "→"),
-    ("↔ (EQUIV.)", "↔"),
     ("¬ (NO)", "¬"),
-    ("( )", "()")
+    ("⊕ (XOR)", "⊕"),
+    ("→ (IMPLICA)", "→"),
+    ("↔ (EQUIV.)", "↔")
 ]
 
 for i, (label, symbol) in enumerate(operadores):
     with cols_ops[i]:
         if st.button(label, use_container_width=True):
-            if symbol == "()":
-                st.session_state.expr += "()"
-            else:
-                st.session_state.expr += f" {symbol} "
+            st.session_state.expr += f" {symbol} "
 
-# Botones de control de edición
-col_c1, col_c2 = st.columns(2)
-with col_c1:
+# Fila adicional para paréntesis individuales y botones de control
+cols_extras = st.columns(4)
+with cols_extras[0]:
+    if st.button("(", use_container_width=True):
+        st.session_state.expr += "("
+with cols_extras[1]:
+    if st.button(")", use_container_width=True):
+        st.session_state.expr += ")"
+with cols_extras[2]:
     if st.button("🗑️ Limpiar Todo", type="secondary", use_container_width=True):
         st.session_state.expr = ""
-with col_c2:
+with cols_extras[3]:
     if st.button("⬅️ Borrar Último", use_container_width=True):
         st.session_state.expr = st.session_state.expr.strip()[:-1]
 
@@ -61,7 +64,7 @@ st.code(st.session_state.expr if st.session_state.expr else "Vacío", language="
 
 # Funciones de lógica para la tabla de verdad
 def normalizar_expresion(expr):
-    expr = expr.replace('→', '>>').replace('↔', '==').replace('∧', '&').replace('∨', '|').replace('¬', '~')
+    expr = expr.replace('→', '>>').replace('↔', '==').replace('∧', '&').replace('∨', '|').replace('¬', '~').replace('⊕', '!=')
     return expr
 
 def extraer_variables(expr):
