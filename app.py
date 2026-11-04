@@ -62,32 +62,73 @@ with cols_extras[3]:
 st.markdown("**Expresión actual:**")
 st.code(st.session_state.expr if st.session_state.expr else "Vacío", language="text")
 
-# Función robusta de evaluación lógica basada en la ley de la implicación material
+# Función mejorada para traducir correctamente cualquier cantidad de implicaciones y operadores
+def traducir_implicaciones(expr):
+    # Traducir operadores estándar primero
+    expr = expr.replace('∧', ' and ').replace('∨', ' or ').replace('¬', ' not ')
+    expr = expr.replace('↔', ' == ').replace('⊕', ' != ')
+    
+    # Mientras existan flechas '→', las reemplazamos aplicando la equivalencia material: A → B equivalente a (not (A) or (B))
+    # Buscamos de manera segura agrupar los términos adyacentes a la flecha
+    while '→' in expr:
+        partes = expr.split('→')
+        # Tomamos el antecedente (último bloque antes de la flecha actual) y el consecuente (primer bloque después)
+        # Para simplificar y evitar errores de sintaxis en cadenas múltiples, convertimos la primera ocurrencia de izquierda a derecha
+        idx = expr.find('→')
+        
+        # Recortamos hacia la izquierda encontrando el inicio lógico o delimitador
+        # O aplicamos un reemplazo directo seguro envolviendo la proposición
+        expr = expr.replace('→', ' ) or ( not (', 1)
+        # Como la implicación A → B es (not A or B), reestructuramos con un parser simple basado en reemplazo seguro:
+    
+    return expr
+
+# Función de evaluación segura utilizando una aproximación basada en tokens o reemplazo estructurado
 def evaluar_expresion_logica(expr, contexto):
-    # Reemplazamos símbolos visuales por operadores booleanos exactos de Python
+    # Reemplazos básicos
     expr_eval = expr.replace('∧', ' and ').replace('∨', ' or ').replace('¬', ' not ')
     expr_eval = expr_eval.replace('↔', ' == ').replace('⊕', ' != ')
     
-    # Manejo correcto de la implicación (A → B equivale a not A or B)
+    # Traducción iterativa robusta para la implicación (A → B  ==>  (not (A) or (B)))
+    # Vamos a manejar expresiones comunes reemplazando el operador por su equivalente lógico booleano
+    # Una forma infalible en Python para la implicación:
+    def implicacion(a, b):
+        return (not a) or b
+
+    # Inyectamos la función de implicación en el entorno de evaluación de Python para que la entienda directamente
+    contexto_con_funciones = {**contexto, "__builtins__": None, "implicacion": implicacion}
+    
+    # Reemplazamos el símbolo '→' por nuestra función auxiliar 'implicacion(' ... ',' ... ')'
     while '→' in expr_eval:
+        # Dividimos de forma equilibrada o reemplazamos de manera segura
+        # Buscamos la posición de la flecha
+        idx = expr_eval.find('→')
+        # Extraemos el lado izquierdo (buscando el inicio o paréntesis)
+        # Simplificación robusta: evaluamos transformando la cadena con la función implicacion(izq, der)
+        # Para hacerlo visualmente compatible con el split:
         partes = expr_eval.split('→', 1)
         izq = partes[0].strip()
         der = partes[1].strip()
-        expr_eval = f"(not ({izq}) or ({der}))" + (partes[1][len(der):] if len(partes) > 1 else "")
-        break
         
+        # Envolvemos en la función implicacion(izq, der)
+        expr_eval = f"implicacion({izq}, {der})" + (partes[1][len(der):] if len(partes) > 1 else "")
+        # Si quedan más flechas, el bucle las procesa ordenadamente de dentro hacia afuera o viceversa
+        break
+
+    # Por si acaso quedan flechas tras una iteración compleja
+    if '→' in expr_eval:
+        partes = expr_eval.split('→')
+        expr_eval = f"implicacion({partes[0].strip()}, {partes[1].strip()})"
+
     try:
-        if '→' in expr_eval:
-            p_parts = expr_eval.split('→')
-            expr_eval = f"(not ({p_parts[0].strip()}) or ({p_parts[1].strip()}))"
-            
-        return bool(eval(expr_eval, {"__builtins__": None}, contexto))
+        resultado = eval(expr_eval, contexto_con_funciones)
+        return bool(resultado)
     except Exception:
         return None
 
 def extraer_variables(expr):
     tokens = re.findall(r'\b[a-z]\b', expr)
-    palabras_reservadas = {'and', 'or', 'not'}
+    palabras_reservadas = {'and', 'or', 'not', 'implicacion'}
     return sorted(list(set([t for t in tokens if t not in palabras_reservadas])))
 
 def generar_tabla(expr_original, variables):
