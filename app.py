@@ -4,169 +4,98 @@ from itertools import product
 import pandas as pd
 
 st.set_page_config(
-    page_title="Calculadora de Tabla de la Verdad",
-    layout="centered"
+    page_title="Calculadora Tabla de la Verdad", layout="centered"
+)
+st.title("🧮 Calculadora de Tabla de la Verdad")
+st.write(
+    "Construye tu expresión haciendo clic. El resultado se muestra en 0 y 1."
 )
 
-st.title("Calculadora de Tabla de la Verdad")
-st.markdown("Construye tu expresión haciendo clic. El resultado se muestra en 0 y 1.")
-
-# Inicializar estado para la expresión
-if 'expr' not in st.session_state:
+if "expr" not in st.session_state:
     st.session_state.expr = ""
 
 st.subheader("🛠️ Constructor de Expresión")
 
-# Variables disponibles
-st.markdown("**Variables:**")
-cols_vars = st.columns(6)
-variables_disponibles = ['p', 'q', 'r', 's', 't', 'u']
-for i, var in enumerate(variables_disponibles):
+variables = ["p", "q", "r", "s", "t", "w"]
+st.write("Variables:")
+cols_vars = st.columns(len(variables))
+for i, var in enumerate(variables):
     with cols_vars[i]:
-        if st.button(var, use_container_width=True):
+        if st.button(var, key=f"var_{var}", use_container_width=True):
             st.session_state.expr += var
 
-# Operadores lógicos
-st.markdown("**Operadores:**")
-cols_ops = st.columns(6)
 operadores = [
-    ("∧ (Y)", "∧"),
-    ("∨ (O)", "∨"),
-    ("¬ (NO)", "¬"),
-    ("⊕ (XOR)", "⊕"),
-    ("→ (IMPLICA)", "→"),
-    ("↔ (EQUIV.)", "↔")
+    ("∧", " and "),
+    ("∨", " or "),
+    ("¬", " not "),
+    ("⊕", " ^ "),
+    ("→", " <= "),
+    ("↔", " == "),
 ]
-
-for i, (label, symbol) in enumerate(operadores):
+st.write("Operadores:")
+cols_ops = st.columns(len(operadores))
+for i, (simbolo, op) in enumerate(operadores):
     with cols_ops[i]:
-        if st.button(label, use_container_width=True):
-            st.session_state.expr += f" {symbol} "
+        if st.button(simbolo, key=f"op_{i}", use_container_width=True):
+            st.session_state.expr += op
 
-# Fila para paréntesis y controles
-cols_extras = st.columns(4)
-with cols_extras[0]:
-    if st.button("(", use_container_width=True):
-        st.session_state.expr += "("
-with cols_extras[1]:
-    if st.button(")", use_container_width=True):
-        st.session_state.expr += ")"
-with cols_extras[2]:
-    if st.button("🗑️ Limpiar Todo", type="secondary", use_container_width=True):
+col_clear, col_preview, col_del = st.columns(3)
+with col_clear:
+    if st.button(
+        "🧹 Limpiar Todo", type="secondary", use_container_width=True
+    ):
         st.session_state.expr = ""
-with cols_extras[3]:
-    if st.button("⬅️ Borrar Último", use_container_width=True):
+with col_del:
+    if st.button(
+        "⌫ Borrar Último", type="secondary", use_container_width=True
+    ):
         st.session_state.expr = st.session_state.expr.strip()[:-1]
 
-# Mostrar expresión actual
-st.markdown("**Expresión actual:**")
-st.code(st.session_state.expr if st.session_state.expr else "Vacío", language="text")
+st.code(st.session_state.expr or "Vacío", language="text")
 
-# Función mejorada para traducir correctamente cualquier cantidad de implicaciones y operadores
-def traducir_implicaciones(expr):
-    # Traducir operadores estándar primero
-    expr = expr.replace('∧', ' and ').replace('∨', ' or ').replace('¬', ' not ')
-    expr = expr.replace('↔', ' == ').replace('⊕', ' != ')
-    
-    # Mientras existan flechas '→', las reemplazamos aplicando la equivalencia material: A → B equivalente a (not (A) or (B))
-    # Buscamos de manera segura agrupar los términos adyacentes a la flecha
-    while '→' in expr:
-        partes = expr.split('→')
-        # Tomamos el antecedente (último bloque antes de la flecha actual) y el consecuente (primer bloque después)
-        # Para simplificar y evitar errores de sintaxis en cadenas múltiples, convertimos la primera ocurrencia de izquierda a derecha
-        idx = expr.find('→')
-        
-        # Recortamos hacia la izquierda encontrando el inicio lógico o delimitador
-        # O aplicamos un reemplazo directo seguro envolviendo la proposición
-        expr = expr.replace('→', ' ) or ( not (', 1)
-        # Como la implicación A → B es (not A or B), reestructuramos con un parser simple basado en reemplazo seguro:
-    
+
+def normalizar_expresion(expr):
     return expr
 
-# Función de evaluación segura utilizando una aproximación basada en tokens o reemplazo estructurado
-def evaluar_expresion_logica(expr, contexto):
-    # Reemplazos básicos
-    expr_eval = expr.replace('∧', ' and ').replace('∨', ' or ').replace('¬', ' not ')
-    expr_eval = expr_eval.replace('↔', ' == ').replace('⊕', ' != ')
-    
-    # Traducción iterativa robusta para la implicación (A → B  ==>  (not (A) or (B)))
-    # Vamos a manejar expresiones comunes reemplazando el operador por su equivalente lógico booleano
-    # Una forma infalible en Python para la implicación:
-    def implicacion(a, b):
-        return (not a) or b
-
-    # Inyectamos la función de implicación en el entorno de evaluación de Python para que la entienda directamente
-    contexto_con_funciones = {**contexto, "__builtins__": None, "implicacion": implicacion}
-    
-    # Reemplazamos el símbolo '→' por nuestra función auxiliar 'implicacion(' ... ',' ... ')'
-    while '→' in expr_eval:
-        # Dividimos de forma equilibrada o reemplazamos de manera segura
-        # Buscamos la posición de la flecha
-        idx = expr_eval.find('→')
-        # Extraemos el lado izquierdo (buscando el inicio o paréntesis)
-        # Simplificación robusta: evaluamos transformando la cadena con la función implicacion(izq, der)
-        # Para hacerlo visualmente compatible con el split:
-        partes = expr_eval.split('→', 1)
-        izq = partes[0].strip()
-        der = partes[1].strip()
-        
-        # Envolvemos en la función implicacion(izq, der)
-        expr_eval = f"implicacion({izq}, {der})" + (partes[1][len(der):] if len(partes) > 1 else "")
-        # Si quedan más flechas, el bucle las procesa ordenadamente de dentro hacia afuera o viceversa
-        break
-
-    # Por si acaso quedan flechas tras una iteración compleja
-    if '→' in expr_eval:
-        partes = expr_eval.split('→')
-        expr_eval = f"implicacion({partes[0].strip()}, {partes[1].strip()})"
-
-    try:
-        resultado = eval(expr_eval, contexto_con_funciones)
-        return bool(resultado)
-    except Exception:
-        return None
 
 def extraer_variables(expr):
-    tokens = re.findall(r'\b[a-z]\b', expr)
-    palabras_reservadas = {'and', 'or', 'not', 'implicacion'}
-    return sorted(list(set([t for t in tokens if t not in palabras_reservadas])))
+    return sorted(list(set(re.findall(r"\b[p-t,w]\b", expr))))
 
-def generar_tabla(expr_original, variables):
+
+def generar_tabla(expr_str):
+    vars_ = extraer_variables(expr_str)
+    if not vars_:
+        return None, None
     tabla = []
-    for valores in product([False, True], repeat=len(variables)):
-        contexto = {v: val for v, val in zip(variables, valores)}
-        resultado_bool = evaluar_expresion_logica(expr_original, contexto)
-        if resultado_bool is None:
+    for valores in product([True, False], repeat=len(vars_)):
+        entorno = {v: val for v, val in zip(vars_, valores)}
+        try:
+            resultado = eval(expr_str, {}, entorno)
+            fila = [int(v) for v in valores] + [int(resultado)]
+            tabla.append(fila)
+        except Exception:
             return None, None
-        
-        fila = [int(v) for v in valores] + [int(resultado_bool)]
-        tabla.append(fila)
-    
-    columnas = variables + ["Resultado"]
-    df = pd.DataFrame(tabla, columns=columnas)
-    return columnas, df
+    return vars_, tabla
 
-# Procesamiento y generación de la tabla
+
 if not st.session_state.expr.strip():
-    st.info("Ingresa o construye una expresión para comenzar.")
+    st.info("Ingresa o construye una expresión arriba.")
 else:
-    variables = extraer_variables(st.session_state.expr)
-    
-    if not variables:
-        st.warning("Expresión incompleta o sin variables detectadas.")
+    expr_norm = normalizar_expresion(st.session_state.expr)
+    vars_, tabla = generar_tabla(expr_norm)
+    if not vars_:
+        st.error(
+            "Expresión inválida o sin variables detectadas.", icon="⚠️"
+        )
     else:
-        cols, df = generar_tabla(st.session_state.expr, variables)
-        if df is not None:
-            st.success(f"¡Tabla generada para {len(variables)} variable(s)!")
-            st.dataframe(df, use_container_width=True, hide_index=True)
-            
-            # Botón de descarga CSV
-            csv = df.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="Descargar tabla de verdad (.csv)",
-                data=csv,
-                file_name="tabla_verdad.csv",
-                mime="text/csv",
-            )
-        else:
-            st.error("Error al evaluar la expresión. Revisa que los operadores y paréntesis estén balanceados.")
+        cols_df = vars_ + ["Resultado"]
+        df = pd.DataFrame(tabla, columns=cols_df)
+        st.success(f"¡Tabla generada para {len(vars_)} variable(s)!")
+        st.dataframe(df, use_container_width=True, hide_index=True)
+        csv = df.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            "📥 Descargar Tabla de Verdad (.csv)",
+            csv,
+            "tabla_verdad.csv",
+            "text/csv",
+        )
